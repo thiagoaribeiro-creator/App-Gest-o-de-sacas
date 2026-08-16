@@ -245,10 +245,45 @@
 <header>
   <h1>📦 Gestão de Sacas</h1>
   <span class="badge">LOGÍSTICA</span>
-  <button onclick="abrirQRCode()" style="margin-left:auto;background:#fff;color:#1a3a5c;border:2px solid #fff;border-radius:8px;padding:7px 14px;font-size:0.85rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px">
-    📱 QR Code de Acesso
-  </button>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+    <button onclick="abrirQRCode()" style="background:#fff;color:#1a3a5c;border:2px solid #fff;border-radius:8px;padding:7px 14px;font-size:0.85rem;font-weight:700;cursor:pointer">
+      📱 QR Code
+    </button>
+    <span id="header-user" style="display:none;font-size:0.82rem;color:#bfdbfe;font-weight:600"></span>
+    <button id="btn-logout" onclick="logout()" style="display:none;background:rgba(255,255,255,0.15);color:#fff;border:1.5px solid rgba(255,255,255,0.4);border-radius:8px;padding:7px 14px;font-size:0.82rem;font-weight:700;cursor:pointer">
+      🔒 Sair
+    </button>
+  </div>
 </header>
+
+<!-- MODAL LOGIN -->
+<div id="modal-login" style="display:none;position:fixed;inset:0;background:rgba(10,20,40,0.85);z-index:10000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;padding:36px 32px;max-width:360px;width:90%;box-shadow:0 24px 64px rgba(0,0,0,0.4)">
+    <div style="text-align:center;margin-bottom:24px">
+      <div style="font-size:2.2rem;margin-bottom:8px">🔐</div>
+      <h2 style="font-size:1.15rem;color:#1a3a5c;font-weight:800">Acesso Restrito</h2>
+      <p style="font-size:0.82rem;color:#6b7280;margin-top:4px">Faça login para continuar</p>
+    </div>
+    <div id="login-error" style="display:none;background:#fee2e2;color:#991b1b;border-radius:8px;padding:10px 14px;font-size:0.85rem;font-weight:600;margin-bottom:16px;text-align:center">
+      Usuário ou senha incorretos.
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:0.78rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Usuário</label>
+      <input id="login-user" type="text" placeholder="Digite o usuário" autocomplete="username"
+        style="width:100%;border:1.5px solid #e5e7eb;border-radius:8px;padding:10px 14px;font-size:0.95rem;outline:none"
+        onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()">
+    </div>
+    <div style="margin-bottom:20px">
+      <label style="font-size:0.78rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Senha</label>
+      <input id="login-pass" type="password" placeholder="Digite a senha" autocomplete="current-password"
+        style="width:100%;border:1.5px solid #e5e7eb;border-radius:8px;padding:10px 14px;font-size:0.95rem;outline:none"
+        onkeydown="if(event.key==='Enter')fazerLogin()">
+    </div>
+    <button onclick="fazerLogin()" style="width:100%;background:#1a3a5c;color:#fff;border:none;border-radius:8px;padding:12px;font-size:1rem;font-weight:700;cursor:pointer">
+      Entrar
+    </button>
+  </div>
+</div>
 
 <!-- MODAL QR CODE -->
 <div id="modal-qr" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center">
@@ -262,16 +297,16 @@
 </div>
 
 <nav class="nav">
-  <button class="active" onclick="showSection('base-sacas')">🗃️ Cadastro de Sacas</button>
+  <button onclick="showSection('base-sacas')">🗃️ Cadastro de Sacas</button>
   <button onclick="showSection('cadastro')">➕ Registrar Sacas</button>
   <button onclick="showSection('painel')">📊 Painel de Consulta</button>
   <button onclick="showSection('relatorio')">📋 Relatório do Dia</button>
-  <button onclick="showSection('expedicao')">🚚 Conferência Expedição</button>
+  <button class="active" onclick="showSection('expedicao')">🚚 Conferência Expedição</button>
   <button onclick="showSection('relatorio-expedicao')">📄 Relatório Expedição</button>
 </nav>
 
 <!-- BASE DE SACAS -->
-<div id="base-sacas" class="section active">
+<div id="base-sacas" class="section">
   <div class="card">
     <h2>Cadastro de Sacas e Rotas Mãe</h2>
     <div id="alert-sacas"></div>
@@ -407,7 +442,7 @@
 </div>
 
 <!-- CONFERÊNCIA EXPEDIÇÃO -->
-<div id="expedicao" class="section">
+<div id="expedicao" class="section active">
   <div class="card">
     <h2>Conferência de Expedição</h2>
     <div id="alert-expedicao"></div>
@@ -600,6 +635,11 @@
 
   // ----- NAV -----
   function showSection(id) {
+    // Verifica se a aba é protegida e o usuário não está logado
+    if (ABAS_PROTEGIDAS.includes(id) && !usuarioLogado) {
+      abrirLogin(id);
+      return;
+    }
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
     document.getElementById(id).classList.add('active');
@@ -1209,6 +1249,56 @@
     doc.save(`relatorio-expedicao-${dataFiltro || 'completo'}.pdf`);
   }
 
+  // ----- CONTROLE DE ACESSO -----
+  const USUARIOS = [
+    { usuario: 'admin', senha: 'logistica@2024' }
+  ];
+
+  // Abas que exigem login
+  const ABAS_PROTEGIDAS = ['base-sacas', 'cadastro', 'painel', 'relatorio', 'relatorio-expedicao'];
+
+  let usuarioLogado = null;
+
+  function abrirLogin(abaPendente) {
+    document.getElementById('modal-login').style.display = 'flex';
+    document.getElementById('login-error').style.display = 'none';
+    document.getElementById('login-user').value = '';
+    document.getElementById('login-pass').value = '';
+    document.getElementById('modal-login').dataset.abaPendente = abaPendente || '';
+    setTimeout(() => document.getElementById('login-user').focus(), 100);
+  }
+
+  function fazerLogin() {
+    const user = document.getElementById('login-user').value.trim();
+    const pass = document.getElementById('login-pass').value;
+    const match = USUARIOS.find(u => u.usuario === user && u.senha === pass);
+    if (!match) {
+      document.getElementById('login-error').style.display = 'block';
+      document.getElementById('login-pass').value = '';
+      return;
+    }
+    usuarioLogado = user;
+    document.getElementById('modal-login').style.display = 'none';
+    document.getElementById('header-user').style.display = 'inline';
+    document.getElementById('header-user').textContent = '👤 ' + user;
+    document.getElementById('btn-logout').style.display = 'inline-block';
+
+    const aba = document.getElementById('modal-login').dataset.abaPendente;
+    if (aba) {
+      const btn = [...document.querySelectorAll('.nav button')].find(b => b.getAttribute('onclick')?.includes("'" + aba + "'"));
+      if (btn) btn.click();
+    }
+  }
+
+  function logout() {
+    usuarioLogado = null;
+    document.getElementById('header-user').style.display = 'none';
+    document.getElementById('btn-logout').style.display = 'none';
+    // Redireciona para Conferência Expedição (aba livre)
+    const btnExp = [...document.querySelectorAll('.nav button')].find(b => b.getAttribute('onclick')?.includes("'expedicao'"));
+    if (btnExp) btnExp.click();
+  }
+
   // ----- QR CODE -----
   function abrirQRCode() {
     const modal = document.getElementById('modal-qr');
@@ -1263,4 +1353,3 @@
 </script>
 </body>
 </html>
-
