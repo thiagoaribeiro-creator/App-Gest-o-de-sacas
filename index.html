@@ -482,10 +482,10 @@
     <div class="table-wrap">
       <table>
         <thead>
-          <tr><th>Rota Mãe</th><th>Nº Saca</th><th>Qtde de Sacas</th><th>Conferido por</th><th>Data/Hora</th><th>Ação</th></tr>
+          <tr><th>Rota Mãe</th><th>Nº Saca</th><th>Qtde de Sacas</th><th>Conferido por</th><th>Data/Hora</th></tr>
         </thead>
         <tbody id="expedicao-tbody">
-          <tr><td colspan="6" class="empty">Nenhum registro de expedição</td></tr>
+          <tr><td colspan="5" class="empty">Nenhum registro de expedição</td></tr>
         </tbody>
       </table>
     </div>
@@ -720,7 +720,7 @@
   function renderExpedicaoTable() {
     const tbody = document.getElementById('expedicao-tbody');
     if (!expedicoes.length) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty">Nenhum registro de expedição</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" class="empty">Nenhum registro de expedição</td></tr>';
       return;
     }
     tbody.innerHTML = expedicoes.map((e, i) => `
@@ -733,7 +733,6 @@
         </td>
         <td>${e.conferente}</td>
         <td style="font-size:0.82rem;color:#6b7280">${e.dataHora}</td>
-        <td><button class="btn btn-danger btn-sm" onclick="removeExpedicao(${i})" style="font-size:0.85rem;padding:6px 14px">🗑️ Excluir</button></td>
       </tr>`).join('');
   }
 
