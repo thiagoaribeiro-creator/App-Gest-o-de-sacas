@@ -7,6 +7,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -249,12 +251,39 @@
     <button onclick="abrirQRCode()" style="background:#fff;color:#1a3a5c;border:2px solid #fff;border-radius:8px;padding:7px 14px;font-size:0.85rem;font-weight:700;cursor:pointer">
       📱 QR Code
     </button>
+    <span id="fb-status" style="font-size:0.75rem;color:#bfdbfe;cursor:pointer" onclick="abrirConfigFirebase()" title="Configurar sincronização"></span>
     <span id="header-user" style="display:none;font-size:0.82rem;color:#bfdbfe;font-weight:600"></span>
     <button id="btn-logout" onclick="logout()" style="display:none;background:rgba(255,255,255,0.15);color:#fff;border:1.5px solid rgba(255,255,255,0.4);border-radius:8px;padding:7px 14px;font-size:0.82rem;font-weight:700;cursor:pointer">
       🔒 Sair
     </button>
   </div>
 </header>
+
+<!-- MODAL FIREBASE -->
+<div id="modal-firebase" style="display:none;position:fixed;inset:0;background:rgba(10,20,40,0.88);z-index:10001;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:18px;padding:36px 32px;max-width:520px;width:94%;box-shadow:0 24px 64px rgba(0,0,0,0.5)">
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:2.4rem;margin-bottom:8px">☁️</div>
+      <h2 style="font-size:1.25rem;color:#1a3a5c;margin-bottom:6px">Sincronização entre dispositivos</h2>
+      <p style="font-size:0.88rem;color:#6b7280;line-height:1.5">Para que celulares, tablets, coletores e computadores compartilhem os mesmos dados em tempo real, conecte um banco de dados gratuito do Firebase.</p>
+    </div>
+    <div style="background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:10px;padding:16px;margin-bottom:18px;font-size:0.82rem;color:#0c4a6e;line-height:1.8">
+      <strong>Como configurar (gratuito):</strong><br>
+      1. Acesse <a href="https://console.firebase.google.com" target="_blank" style="color:#0284c7;font-weight:600">console.firebase.google.com</a> → crie um projeto<br>
+      2. Clique em <strong>Web (&lt;/&gt;)</strong> → registre o app → copie o bloco <code>firebaseConfig = { ... }</code><br>
+      3. No menu lateral: <strong>Realtime Database</strong> → Criar banco → Regras → substitua por:<br>
+      <code style="background:#dbeafe;padding:2px 6px;border-radius:4px">{"rules":{".read":true,".write":true}}</code><br>
+      4. Cole a configuração abaixo e clique em Conectar
+    </div>
+    <label style="font-size:0.82rem;font-weight:600;color:#374151;display:block;margin-bottom:6px">Cole sua configuração Firebase aqui:</label>
+    <textarea id="fb-config-input" rows="6" style="width:100%;border:1.5px solid #d1d5db;border-radius:8px;padding:10px 12px;font-family:monospace;font-size:0.78rem;resize:vertical;outline:none" placeholder='{"apiKey":"...","authDomain":"...","databaseURL":"https://seu-projeto-default-rtdb.firebaseio.com","projectId":"...","storageBucket":"...","messagingSenderId":"...","appId":"..."}'></textarea>
+    <p id="fb-config-error" style="color:#dc2626;font-size:0.8rem;margin-top:6px;min-height:1.2em"></p>
+    <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+      <button onclick="salvarConfigFirebase()" style="flex:2;background:#1a3a5c;color:#fff;border:none;border-radius:9px;padding:13px 18px;font-size:0.92rem;font-weight:700;cursor:pointer">✅ Conectar e Sincronizar</button>
+      <button onclick="usarSoLocal()" style="flex:1;background:#f3f4f6;color:#6b7280;border:1.5px solid #d1d5db;border-radius:9px;padding:13px 12px;font-size:0.85rem;font-weight:600;cursor:pointer">💾 Só local</button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL LOGIN -->
 <div id="modal-login" style="display:none;position:fixed;inset:0;background:rgba(10,20,40,0.85);z-index:10000;align-items:center;justify-content:center">
@@ -682,15 +711,128 @@
   // ----- BASE CONFERENTES (importado do Excel) -----
   const BASE_CONFERENTES = [{"id":2047911,"nome":"Adriana Fabri De Macena"},{"id":385904,"nome":"Adriana Perreira Da Silva"},{"id":2519799,"nome":"Agatha Gabrielle Lima De Queiroz"},{"id":385897,"nome":"Alessandra Muniz"},{"id":2521103,"nome":"Alessandra Silva De Carvalho"},{"id":2571680,"nome":"Alex Da Fonseca De Jesus"},{"id":2395334,"nome":"Alex Da Fonseca De Jesus"},{"id":2520086,"nome":"Alex Marcos Garzon"},{"id":519380,"nome":"Alexandre Silva De Araujo"},{"id":2280012,"nome":"Alexandre Teves Alcantara Santos"},{"id":2114440,"nome":"Alexandre Teves Alcantara Santos"},{"id":2541115,"nome":"Aline Sivec De Macedo"},{"id":2400279,"nome":"Alisson Augusto Viana"},{"id":2629004,"nome":"Amanda Aparecida Da Silva Santos"},{"id":2559256,"nome":"Ana Beatriz Junqueira Ferreira"},{"id":2409946,"nome":"Ana Carolina Pereira Araujo Da Silva"},{"id":349718,"nome":"Ana Carolina Pereira Araujo Da Silva"},{"id":2463797,"nome":"Ana Rafaela Carvalho Da Cruz"},{"id":2629019,"nome":"Analice Oliveira Da Silva"},{"id":2519307,"nome":"Andre Da Silva Araujo"},{"id":2478474,"nome":"Andrei Cruz"},{"id":2562913,"nome":"Andreina Aparecida Da Silva Santos"},{"id":2429923,"nome":"Andrey Fernando Rosa Augusto"},{"id":1946668,"nome":"Andrey Fernando Rosa Augusto"},{"id":2318720,"nome":"Anne Elise Sorge Lessa"},{"id":1893716,"nome":"Anne Elise Sorge Lessa"},{"id":2183000,"nome":"Barbara Noemia Ponce Da Silva"},{"id":2400340,"nome":"Barbara Noemia Ponce Da Silva"},{"id":2541111,"nome":"Beatriz Andrade Dos Santos"},{"id":2272705,"nome":"Beatriz Bastos Dos Santos"},{"id":2509857,"nome":"Beatriz Bastos Dos Santos"},{"id":2261298,"nome":"Bianca Rizo Carvalho"},{"id":2111815,"nome":"Bianca Rizo Carvalho"},{"id":2612639,"nome":"Brenda Camile Pineiro Tavares"},{"id":2552927,"nome":"Brenda Ursulina Ponce Da Silva"},{"id":2438941,"nome":"Breno Lucca Alves Raimundo"},{"id":2507740,"nome":"Breno Lucca Alves Raimundo"},{"id":2629021,"nome":"Bruno Angelo De Castro Castao"},{"id":2519882,"nome":"Bruno Bernardino Da Silva"},{"id":2509858,"nome":"Caio Pereira Silva De Morais"},{"id":440264,"nome":"Camila Michelle Quatrochi Santos"},{"id":2124482,"nome":"Carlos Alberto Del Bianchi"},{"id":2509861,"nome":"Carlos Alberto Del Bianchi"},{"id":2478707,"nome":"Carlos Daniel Dos Reis Rosa"},{"id":2519380,"nome":"Carlos Gabriel Sivec Da Silva"},{"id":2237936,"nome":"Caroline Cristina Melo Nunes"},{"id":2475785,"nome":"Caroline Cristina Melo Nunes"},{"id":2478708,"nome":"Claudia Aparecida Pereira Costa"},{"id":2475792,"nome":"Claudia Aparecida Pereira Costa"},{"id":2438712,"nome":"Cristiane Da Silva Menezes"},{"id":2102687,"nome":"Cristiane Da Silva Menezes"},{"id":2457839,"nome":"Cristiane Larissa Novaes Marra"},{"id":2595089,"nome":"Daiara Lins Ferreira"},{"id":1958078,"nome":"Damaris Marchioli Rossi Ramos"},{"id":2475789,"nome":"Damaris Marchioli Rossi Ramos"},{"id":2609206,"nome":"Daniel Chagas Da Silva"},{"id":2519986,"nome":"Danniel Tonhon"},{"id":539643,"nome":"Debora Goncalvez Cardoso"},{"id":2320240,"nome":"Debora Isabelle Da Silva"},{"id":2463348,"nome":"Dulcelea Rodrigues Silva"},{"id":2463344,"nome":"Dulcelea Rodrigues Silva"},{"id":2266188,"nome":"Durcilei Alves De Souza"},{"id":2291112,"nome":"Eliane De Almeida Santos"},{"id":2071649,"nome":"Eliane De Almeida Santos"},{"id":2594468,"nome":"Elisangela De Matos Siebra"},{"id":2463793,"nome":"Elza Neves Dos Santos"},{"id":2463434,"nome":"Elza Neves Dos Santos"},{"id":2609183,"nome":"Erick Samuel Marchioli Souza"},{"id":2405401,"nome":"Ester De Oliveira Alves De Souza"},{"id":529875,"nome":"Ester De Oliveira Alves De Souza"},{"id":2349088,"nome":"Fabiana Lima Evangelista Da Silva"},{"id":2375514,"nome":"Fabiana Ortega Da Fonseca"},{"id":2438969,"nome":"Fabiana Ortega Da Fonseca"},{"id":2629026,"nome":"Fabio Dos Santos"},{"id":2417293,"nome":"Fernando Deli Colli"},{"id":2300281,"nome":"Flavia Fernanda"},{"id":2438979,"nome":"Flavia Fernanda"},{"id":2562914,"nome":"Flavia Monique"},{"id":2008801,"nome":"Gabriel Bueno"},{"id":2046200,"nome":"Gabriel Silva Dos Santos"},{"id":2340178,"nome":"Gabriela Nascimento Dos Santos"},{"id":539017,"nome":"Gabriela Pereira Dos Santos"},{"id":2478663,"nome":"Gabriela Vieira De Souza"},{"id":2102672,"nome":"Gabriela Vieira De Souza"},{"id":2047138,"nome":"Geisila Gomes Queiroz De Silva Amorim"},{"id":2046456,"nome":"Geisila Gomes Queiroz De Silva Amorim"},{"id":2420957,"nome":"Geovanna Menezes Silva"},{"id":2102692,"nome":"Geyce Mary Santos Neves"},{"id":2420955,"nome":"Gladson Da Silva Vaz"},{"id":2475791,"nome":"Gladson Da Silva Vaz"},{"id":2483216,"nome":"Gladson Da Silva Vaz"},{"id":2483220,"nome":"Gleice Fernandes Dos Santos"},{"id":2360659,"nome":"Graciela Dos Santos"},{"id":2457220,"nome":"Guilherme Gomes Santana"},{"id":2629017,"nome":"Gustavo Henrique Jorgeto"},{"id":2405416,"nome":"Helen Fernanda Alves Nicacio"},{"id":2509864,"nome":"Helen Fernanda Alves Nicacio"},{"id":2365058,"nome":"Hiago Teixeira Da Silva"},{"id":537772,"nome":"Hiago Teixeira Da Silva"},{"id":2272668,"nome":"Hiago Teixeira Da Silva"},{"id":2137704,"nome":"Igor Augusto Dias Braghin"},{"id":2509866,"nome":"Igor Augusto Dias Braghin"},{"id":2352672,"nome":"Igor De Souza Azevedo"},{"id":2609174,"nome":"Igor Sergio Da Silva Da Silva"},{"id":1909048,"nome":"Isabela Dos Santos Alves Vito"},{"id":2344031,"nome":"Jean Lucas Barbosa Do Nascimento"},{"id":2145929,"nome":"Jean Lucas Barbosa Do Nascimento"},{"id":2285381,"nome":"Jefferson Silva De Moraes"},{"id":1925456,"nome":"Jessica Aparecida Araujo Alvarez"},{"id":2300267,"nome":"Jessica Aparecida Araujo Alvarez"},{"id":2340847,"nome":"Jessica Araujo Dos Santos"},{"id":2463571,"nome":"Jessica Araujo Dos Santos"},{"id":2386232,"nome":"Jessica Ferreira Da Silva"},{"id":2629022,"nome":"Joao Antonio Cruz Lopes"},{"id":2463573,"nome":"Joao Gabriel Alves Santiago Silva"},{"id":1267605,"nome":"Joao Gabriel Alves Santiago Silva"},{"id":2186440,"nome":"Joao Marcos"},{"id":2463798,"nome":"Joao Marcos"},{"id":2475788,"nome":"Joao Pedro Dos Santos Silva"},{"id":2055264,"nome":"Jonatas Felipe Rocha Dos Santos"},{"id":2443518,"nome":"Jonathan De Lima Lira"},{"id":2429921,"nome":"Jonathan De Lima Lira"},{"id":2541119,"nome":"Jonathan Monteiro Melo"},{"id":2519232,"nome":"Jonathan Rafael Batista Greke"},{"id":2457838,"nome":"Joyce Yasmin Rodrigues Soares"},{"id":1734446,"nome":"Joyce Yasmin Rodrigues Soares"},{"id":2340174,"nome":"Juliano Tadeu De Paula"},{"id":2525985,"nome":"Junior Cesar Batista"},{"id":2390085,"nome":"Kathleen Lauane Mota Da Silva"},{"id":2612642,"nome":"Katia Martins"},{"id":2409950,"nome":"Kauan Victor Alves Da Cruz"},{"id":2517754,"nome":"Kauana Ruth Ramos Da Silva"},{"id":2469604,"nome":"Kinderman Lourenti Lourenti"},{"id":2507743,"nome":"Kinderman Lourenti Lourenti"},{"id":2420962,"nome":"Lara Monteiro Da Silva"},{"id":2463572,"nome":"Lara Monteiro Da Silva"},{"id":2463345,"nome":"Leticia Nascimento Dos Santos"},{"id":2454716,"nome":"Leticia Nascimento Dos Santos"},{"id":2469611,"nome":"Leticia Nascimento Dos Santos"},{"id":2420956,"nome":"Ligia Maria Da Costa"},{"id":2454718,"nome":"Loriam Andre Alves Da Silva"},{"id":1808226,"nome":"Loriam Andre Alves Da Silva"},{"id":2509869,"nome":"Loudilaine Costa Nogueira"},{"id":2408552,"nome":"Luan Gabriel Lima Donato"},{"id":2541108,"nome":"Luan Victor Goncalves Da Silva"},{"id":2469606,"nome":"Luana Silva Santos"},{"id":2511921,"nome":"Lucas Augusto Dos Santos Francisco"},{"id":2311849,"nome":"Lucas Ednan Santos Mota"},{"id":2562915,"nome":"Lucas Rapozo Da Silva"},{"id":2457837,"nome":"Luciana Aparecida Teixeira Da Silva"},{"id":2594464,"nome":"Luciano De Toledo Lobo"},{"id":2229109,"nome":"Luis Henrique Dos Santos"},{"id":2509884,"nome":"Luiz Felipe Da Silva Cavalcanti"},{"id":2452531,"nome":"Luiz Fellype Lucena Da Silva"},{"id":2509850,"nome":"Luiz Fellype Lucena Da Silva"},{"id":2530420,"nome":"Luiz Henry Broilo Do Nascimento"},{"id":2609208,"nome":"Maisa Policorpo Da Silva"},{"id":2443510,"nome":"Marcelo Prado"},{"id":2282320,"nome":"Marcelo Prado"},{"id":1855314,"nome":"Maria Aline Daniele Furtuso"},{"id":2509867,"nome":"Maria Eduarda Martins Da Silva"},{"id":2478759,"nome":"Maria Eduarda Santana Bueno"},{"id":2509852,"nome":"Maria Eduarda Santana Bueno"},{"id":2478758,"nome":"Maria Eduarda Trombeta Pereira"},{"id":2237796,"nome":"Maria Eduarda Trombeta Pereira"},{"id":385885,"nome":"Maria Fernanda Goncalves"},{"id":2108985,"nome":"Maria Luiza Dos Santos Oliveira"},{"id":2509854,"nome":"Maria Luiza Dos Santos Oliveira"},{"id":2475793,"nome":"Maria Vitoria Sales Dos Santos"},{"id":2160894,"nome":"Maria Vitoria Sales Dos Santos"},{"id":2478697,"nome":"Mariana Cirillo Bersanin"},{"id":2594466,"nome":"Mariana Florindo Albertoni"},{"id":309632,"nome":"Mariana Rodrigues Almeida"},{"id":2463347,"nome":"Mariana Souza"},{"id":2457868,"nome":"Marilza Da Silva Santos Souza"},{"id":2452534,"nome":"Matheus Felipe De Souza Silva"},{"id":2475786,"nome":"Matheus Henrique Barbosa Da Silva"},{"id":2629031,"nome":"Mayara Aparecida Silva Oliveira"},{"id":2438987,"nome":"Mirelli Mendes Pedreira"},{"id":2552901,"nome":"Naira Hellen Barbosa De Oliveira"},{"id":2429922,"nome":"Nathaly Ferreira De Souza Silva"},{"id":2204371,"nome":"Nathan Leonardo Dos Santos"},{"id":2409895,"nome":"Nelson Fernando Ascencio Barbosa"},{"id":2507727,"nome":"Nicolle Do Rosario Almeida"},{"id":2469605,"nome":"Orlando Santana Ziola"},{"id":1893833,"nome":"Pablo Henrique Ferreira Barbosa"},{"id":2609205,"nome":"Patricia Matos Lopes"},{"id":2629012,"nome":"Paulo Henrique Turella Petry"},{"id":1775242,"nome":"Paulo Jose Luis Cunha Aguiar"},{"id":351648,"nome":"Pedro De Azevedo Santos"},{"id":1960922,"nome":"Pedro Henrique Alves Da Silva"},{"id":385907,"nome":"Pedro Henrique De Sousa"},{"id":2629041,"nome":"Pedro Henrique Santos Da Silva Carvalhaes"},{"id":2438994,"nome":"Pedro Santos Silva"},{"id":2301408,"nome":"Priscilla Aparecida Da Silva"},{"id":385903,"nome":"Priscilla Aparecida Da Silva"},{"id":2452549,"nome":"Rafael De Oliveira Souto"},{"id":1994883,"nome":"Rafael Ricardo Da Costa"},{"id":2571306,"nome":"Rafaela Cristina Ferreira"},{"id":2609176,"nome":"Renata Aparecida Rodrigues Bitao"},{"id":2192253,"nome":"Rodrigo De Paula Barbosa"},{"id":2541121,"nome":"Rosemeire Francisca Menezes"},{"id":2429966,"nome":"Rute Oliveira Fermino"},{"id":2469884,"nome":"Rute Oliveira Fermino"},{"id":2629042,"nome":"Ruth Monteiro Araujo Pena"},{"id":2614523,"nome":"Sabrina Aparecida Batista"},{"id":2320478,"nome":"Sandra Kazue Yamada"},{"id":2502772,"nome":"Scarlat Cristiane Gimenez Veiga"},{"id":2511916,"nome":"Scarlat Dos Santos Matos"},{"id":454582,"nome":"Sergio Paulo Sarri"},{"id":2629039,"nome":"Sophia Thaoany Medeiros Rodrigues"},{"id":2629016,"nome":"Tamires Eduarda Alves Dos Santos"},{"id":350527,"nome":"Tania Dos Santos"},{"id":2007347,"nome":"Tatiana Dos Santos Batanero"},{"id":2447843,"nome":"Thais Aparecida Da Silva Barros"},{"id":1872119,"nome":"Thiago Cardoso Da Silva"},{"id":2571678,"nome":"Thiago Henrique Dos Santos Dias"},{"id":2302617,"nome":"Thiago Henrique Dos Santos Dias"},{"id":2460013,"nome":"Tuane Mycaela Da Silva Santos"},{"id":2457836,"nome":"Valter Tadal Karakawa Junior"},{"id":2452550,"nome":"Victoria Maria Nazario Gimenez"},{"id":2437666,"nome":"Vinicius Gabriel De Freitas Soares"},{"id":2552948,"nome":"Vinicius Gabriel De Freitas Soares"},{"id":2097773,"nome":"Vinicius Pereira Dos Santos Eugenio"},{"id":539654,"nome":"Vitoria Gabriela Schenfeld"},{"id":2585096,"nome":"Vitoria Maria Pontes Pontes"},{"id":2262385,"nome":"Vitoria Mariana Tauffer Silva"},{"id":2005140,"nome":"Wellington Soares De Pinho"},{"id":2618074,"nome":"Wesley Richard Gomes Ribeiro."},{"id":2519487,"nome":"Willian Cesar Soares Da Silva"},{"id":2478660,"nome":"Winara Borges Dos Santos"}];
 
+  // ----- FIREBASE -----
+  let db = null;
+
+  function fbValToArray(val) {
+    if (!val) return [];
+    if (Array.isArray(val)) return val.filter(v => v != null);
+    if (typeof val === 'object') return Object.values(val).filter(v => v != null);
+    return [];
+  }
+
+  function renderStatusFB(status) {
+    const el = document.getElementById('fb-status');
+    if (!el) return;
+    const map = {
+      ok:    { cor: '#22c55e', txt: '🔗 Sincronizado' },
+      local: { cor: '#f97316', txt: '📴 Modo Local' }
+    };
+    const s = map[status] || map.local;
+    el.innerHTML = `<span style="color:${s.cor};font-size:0.75rem;font-weight:600;cursor:pointer" onclick="abrirConfigFirebase()" title="Configurar sincronização">${s.txt}</span>`;
+  }
+
+  function reRenderActive() {
+    const a = document.querySelector('.section.active');
+    if (!a) return;
+    if (a.id === 'base-sacas')          renderSacasTable();
+    if (a.id === 'cadastro')            { refreshDropdowns(); renderRegistrosTable(); }
+    if (a.id === 'painel')              { refreshPainelDropdowns(); renderPainel(); }
+    if (a.id === 'expedicao')           { initExpedicaoRotaDropdown(); renderExpedicaoTable(); }
+    if (a.id === 'relatorio-expedicao') renderRelatorioExp();
+    if (a.id === 'historico')           renderHistorico();
+  }
+
+  function setupListeners() {
+    db.ref('sacas-app/sacas').on('value', snap => {
+      sacas = fbValToArray(snap.val());
+      reRenderActive();
+    });
+    db.ref('sacas-app/registros').on('value', snap => {
+      registros = fbValToArray(snap.val());
+      reRenderActive();
+    });
+    db.ref('sacas-app/expedicoes').on('value', snap => {
+      expedicoes = fbValToArray(snap.val());
+      const a = document.querySelector('.section.active');
+      if (a && a.id === 'expedicao') renderExpedicaoTable();
+    });
+    db.ref('sacas-app/historicoExp').on('value', snap => {
+      historicoExp = fbValToArray(snap.val());
+      const a = document.querySelector('.section.active');
+      if (a && a.id === 'relatorio-expedicao') renderRelatorioExp();
+      if (a && a.id === 'historico') renderHistorico();
+    });
+  }
+
+  function inicializarFirebase(config) {
+    try {
+      if (!firebase.apps.length) firebase.initializeApp(config);
+      db = firebase.database();
+      db.ref('.info/connected').on('value', snap => {
+        renderStatusFB(snap.val() === true ? 'ok' : 'local');
+      });
+      localStorage.setItem('fb_config', JSON.stringify(config));
+      setupListeners();
+      return true;
+    } catch(e) {
+      console.error('Firebase init error:', e);
+      return false;
+    }
+  }
+
+  function salvarConfigFirebase() {
+    const raw = (document.getElementById('fb-config-input').value || '').trim();
+    const errEl = document.getElementById('fb-config-error');
+    errEl.textContent = '';
+    let config;
+    try {
+      const clean = raw.replace(/^const\s+firebaseConfig\s*=\s*/, '').replace(/;?\s*$/, '');
+      config = JSON.parse(clean);
+    } catch(e) {
+      errEl.textContent = 'JSON inválido. Copie o bloco completo do Firebase.';
+      return;
+    }
+    if (!config.databaseURL) {
+      errEl.textContent = 'Falta o campo "databaseURL". Ative o Realtime Database no projeto Firebase.';
+      return;
+    }
+    const ok = inicializarFirebase(config);
+    if (ok) {
+      document.getElementById('modal-firebase').style.display = 'none';
+    } else {
+      errEl.textContent = 'Não foi possível conectar. Verifique as configurações.';
+    }
+  }
+
+  function usarSoLocal() {
+    document.getElementById('modal-firebase').style.display = 'none';
+    localStorage.setItem('fb_skip', '1');
+    renderStatusFB('local');
+  }
+
+  function abrirConfigFirebase() {
+    const saved = localStorage.getItem('fb_config');
+    if (saved) document.getElementById('fb-config-input').value = saved;
+    document.getElementById('fb-config-error').textContent = '';
+    document.getElementById('modal-firebase').style.display = 'flex';
+  }
+
   // ----- STATE -----
-  let sacas = JSON.parse(localStorage.getItem('sacas') || '[]');
-  let conferentes = JSON.parse(localStorage.getItem('conferentes') || '[]');
-  let registros = JSON.parse(localStorage.getItem('registros') || '[]');
+  let sacas = [];
+  let conferentes = [];
+  let registros = [];
 
   function save() {
-    localStorage.setItem('sacas', JSON.stringify(sacas));
-    localStorage.setItem('conferentes', JSON.stringify(conferentes));
-    localStorage.setItem('registros', JSON.stringify(registros));
+    if (db) {
+      db.ref('sacas-app/sacas').set(sacas);
+      db.ref('sacas-app/conferentes').set(conferentes);
+      db.ref('sacas-app/registros').set(registros);
+    } else {
+      localStorage.setItem('sacas', JSON.stringify(sacas));
+      localStorage.setItem('conferentes', JSON.stringify(conferentes));
+      localStorage.setItem('registros', JSON.stringify(registros));
+    }
   }
 
   // ----- NAV -----
@@ -721,12 +863,17 @@
   }
 
   // ----- EXPEDIÇÃO -----
-  let expedicoes = JSON.parse(localStorage.getItem('expedicoes') || '[]');
-  let historicoExp = JSON.parse(localStorage.getItem('historicoExp') || '[]');
+  let expedicoes = [];
+  let historicoExp = [];
 
   function saveExp() {
-    localStorage.setItem('expedicoes', JSON.stringify(expedicoes));
-    localStorage.setItem('historicoExp', JSON.stringify(historicoExp));
+    if (db) {
+      db.ref('sacas-app/expedicoes').set(expedicoes);
+      db.ref('sacas-app/historicoExp').set(historicoExp);
+    } else {
+      localStorage.setItem('expedicoes', JSON.stringify(expedicoes));
+      localStorage.setItem('historicoExp', JSON.stringify(historicoExp));
+    }
   }
 
   function addExpedicao() {
@@ -1206,7 +1353,7 @@
     const dataFiltro = document.getElementById('re-data').value;
     const rotaFiltro = document.getElementById('re-rota').value;
     const confFiltro = (document.getElementById('re-conf').value || '').toLowerCase();
-    let dados = JSON.parse(localStorage.getItem('historicoExp') || '[]');
+    let dados = historicoExp.slice();
     if (dataFiltro) {
       dados = dados.filter(r => dataISOdoRegistro(r.dataHora) === dataFiltro);
     }
@@ -1223,7 +1370,7 @@
     // populate rota dropdown from all expedicoes
     const reRota = document.getElementById('re-rota');
     const current = reRota.value;
-    const allExp = JSON.parse(localStorage.getItem('historicoExp') || '[]');
+    const allExp = historicoExp;
     const rotas = [...new Set(allExp.map(r => r.rota).filter(Boolean))].sort();
     reRota.innerHTML = '<option value="">Todas</option>';
     rotas.forEach(r => {
@@ -1311,7 +1458,7 @@
 
   // ----- HISTÓRICO GERAL -----
   function getHistoricoUnificado() {
-    const regs = JSON.parse(localStorage.getItem('registros') || '[]').map(r => ({
+    const regs = registros.map(r => ({
       tipo: 'registro',
       dataHora: r.dataHora,
       rota: r.rota,
@@ -1321,7 +1468,7 @@
       status: 'OK',
       divergencia: false
     }));
-    const exps = JSON.parse(localStorage.getItem('historicoExp') || '[]').map(e => ({
+    const exps = historicoExp.map(e => ({
       tipo: 'expedicao',
       dataHora: e.dataHora,
       rota: e.rota,
@@ -1554,12 +1701,38 @@
     });
   }
 
-  // Init
-  initSacaNumDropdown();
-  initSacaRotaDropdown();
-  initExpedicaoRotaDropdown();
-  renderSacasTable();
-  renderRegistrosTable();
+  // ----- INIT -----
+  function carregarLocal() {
+    sacas        = JSON.parse(localStorage.getItem('sacas')        || '[]');
+    conferentes  = JSON.parse(localStorage.getItem('conferentes')  || '[]');
+    registros    = JSON.parse(localStorage.getItem('registros')    || '[]');
+    expedicoes   = JSON.parse(localStorage.getItem('expedicoes')   || '[]');
+    historicoExp = JSON.parse(localStorage.getItem('historicoExp') || '[]');
+    renderSacasTable();
+    renderRegistrosTable();
+  }
+
+  // Configuração Firebase embutida — conecta automaticamente em todos os dispositivos
+  const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyBADTQ4Yvib9184hlp7ny5r_2MLyWC5HPU",
+    authDomain: "gestao-de-sacas.firebaseapp.com",
+    databaseURL: "https://gestao-de-sacas-default-rtdb.firebaseio.com",
+    projectId: "gestao-de-sacas",
+    storageBucket: "gestao-de-sacas.firebasestorage.app",
+    messagingSenderId: "928569351686",
+    appId: "1:928569351686:web:25e6ab741de34144e1ad87",
+    measurementId: "G-X6RBFK1JNJ"
+  };
+
+  function appInit() {
+    initSacaNumDropdown();
+    initSacaRotaDropdown();
+    initExpedicaoRotaDropdown();
+    carregarLocal();
+    inicializarFirebase(FIREBASE_CONFIG);
+  }
+
+  appInit();
 </script>
 </body>
 </html>
