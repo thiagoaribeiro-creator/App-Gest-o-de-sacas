@@ -890,7 +890,7 @@
     const qtdeCadastrada = registro ? Number(registro.qtde) : null;
     const temDivergencia = qtdeCadastrada !== null && qtde !== qtdeCadastrada;
 
-    const agora = new Date().toLocaleString('pt-BR');
+    const agora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
     const novoRegistro = {
       rota, sacaNum, qtde, conferente, dataHora: agora,
       divergencia: temDivergencia,
@@ -1064,7 +1064,7 @@
     doc.text('Base de Sacas — Gestão de Sacas', 14, 15);
     doc.setFontSize(10);
     doc.setTextColor(100);
-    doc.text(`Total: ${sacas.length} saca(s)   |   Gerado em: ${new Date().toLocaleString('pt-BR')}`, 14, 22);
+    doc.text(`Total: ${sacas.length} saca(s)   |   Gerado em: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`, 14, 22);
     doc.autoTable({
       startY: 28,
       head: [['Nº Saca', 'Nome', 'Rota Mãe']],
@@ -1215,7 +1215,7 @@
     if (!sacaNum || !qtde || !rotaVal || !confId) return showAlert('alert-registro', 'Preencha todos os campos.', 'error');
     if (registros.find(r => r.sacaNum === sacaNum && r.rota === rotaVal)) return showAlert('alert-registro', `Saca ${sacaNum} já registrada na Rota ${rotaVal}.`, 'error');
     const conf = BASE_CONFERENTES.find(c => String(c.id) === String(confId)) || conferentes.find(c => c.id === confId);
-    const agora = new Date().toLocaleString('pt-BR');
+    const agora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
     registros.push({ sacaNum, rota: rotaVal, qtde, confId, confNome: conf.nome, dataHora: agora });
     save();
     renderRegistrosTable();
@@ -1736,3 +1736,4 @@
 </script>
 </body>
 </html>
+
