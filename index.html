@@ -752,6 +752,11 @@
       registros = fbValToArray(snap.val());
       reRenderActive();
     });
+    db.ref('sacas-app/historicoRegistros').on('value', snap => {
+      historicoRegistros = fbValToArray(snap.val());
+      const a = document.querySelector('.section.active');
+      if (a && a.id === 'historico') renderHistorico();
+    });
     db.ref('sacas-app/expedicoes').on('value', snap => {
       expedicoes = fbValToArray(snap.val());
       const a = document.querySelector('.section.active');
@@ -822,16 +827,55 @@
   let sacas = [];
   let conferentes = [];
   let registros = [];
+  let historicoRegistros = []; // permanente — nunca é limpo no reset diário
 
   function save() {
     if (db) {
       db.ref('sacas-app/sacas').set(sacas);
       db.ref('sacas-app/conferentes').set(conferentes);
       db.ref('sacas-app/registros').set(registros);
+      db.ref('sacas-app/historicoRegistros').set(historicoRegistros);
     } else {
       localStorage.setItem('sacas', JSON.stringify(sacas));
       localStorage.setItem('conferentes', JSON.stringify(conferentes));
       localStorage.setItem('registros', JSON.stringify(registros));
+      localStorage.setItem('historicoRegistros', JSON.stringify(historicoRegistros));
+    }
+  }
+
+  // ----- RESET DIÁRIO -----
+  // Zera Cadastro de Sacas, Registrar Sacas, Painel de Consulta e Conferência Expedição
+  // a cada novo dia (horário de Brasília). Relatório Expedição e Histórico Geral
+  // continuam com todos os registros para sempre.
+  function getDataHojeBR() {
+    return new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }); // YYYY-MM-DD
+  }
+
+  function executarResetDiario(hoje) {
+    sacas = [];
+    registros = [];
+    expedicoes = [];
+    localStorage.setItem('lastReset', hoje);
+    if (db) db.ref('sacas-app/meta/lastReset').set(hoje);
+    save();
+    saveExp();
+    reRenderActive();
+  }
+
+  async function verificarResetDiario() {
+    const hoje = getDataHojeBR();
+    if (db) {
+      try {
+        const snap = await db.ref('sacas-app/meta/lastReset').once('value');
+        const remoteLast = snap.val();
+        if (remoteLast !== hoje) executarResetDiario(hoje);
+        else localStorage.setItem('lastReset', hoje);
+      } catch(e) {
+        console.warn('Erro ao verificar reset diário:', e);
+      }
+    } else {
+      const localLast = localStorage.getItem('lastReset');
+      if (localLast !== hoje) executarResetDiario(hoje);
     }
   }
 
@@ -1216,7 +1260,9 @@
     if (registros.find(r => r.sacaNum === sacaNum && r.rota === rotaVal)) return showAlert('alert-registro', `Saca ${sacaNum} já registrada na Rota ${rotaVal}.`, 'error');
     const conf = BASE_CONFERENTES.find(c => String(c.id) === String(confId)) || conferentes.find(c => c.id === confId);
     const agora = new Date().toLocaleString('pt-BR');
-    registros.push({ sacaNum, rota: rotaVal, qtde, confId, confNome: conf.nome, dataHora: agora });
+    const novoRegistroSaca = { sacaNum, rota: rotaVal, qtde, confId, confNome: conf.nome, dataHora: agora };
+    registros.push(novoRegistroSaca);
+    historicoRegistros.push({ ...novoRegistroSaca });
     save();
     renderRegistrosTable();
     document.getElementById('reg-saca-num').value = '';
@@ -1458,7 +1504,7 @@
 
   // ----- HISTÓRICO GERAL -----
   function getHistoricoUnificado() {
-    const regs = registros.map(r => ({
+    const regs = historicoRegistros.map(r => ({
       tipo: 'registro',
       dataHora: r.dataHora,
       rota: r.rota,
@@ -1706,6 +1752,7 @@
     sacas        = JSON.parse(localStorage.getItem('sacas')        || '[]');
     conferentes  = JSON.parse(localStorage.getItem('conferentes')  || '[]');
     registros    = JSON.parse(localStorage.getItem('registros')    || '[]');
+    historicoRegistros = JSON.parse(localStorage.getItem('historicoRegistros') || '[]');
     expedicoes   = JSON.parse(localStorage.getItem('expedicoes')   || '[]');
     historicoExp = JSON.parse(localStorage.getItem('historicoExp') || '[]');
     renderSacasTable();
@@ -1730,6 +1777,9 @@
     initExpedicaoRotaDropdown();
     carregarLocal();
     inicializarFirebase(FIREBASE_CONFIG);
+    // Verifica se o dia mudou e limpa Cadastro/Registrar/Painel/Conferência se necessário
+    setTimeout(verificarResetDiario, 1500);
+    setInterval(verificarResetDiario, 60000);
   }
 
   appInit();
